@@ -139,6 +139,8 @@ By doing so we have 3000 possible combination of pre and post-trade intervals.  
 
 Both ES and ZN regression results for the trading days ranging from 11/7/2016 through 11/11/2016 are in the tables below.  When looking at the regression results tables, note that the middle two columns (2 and 3) report the results for the 'active' side of the book---the side on which the trade was executed.  Columns 1 and 4 represent the 'inactive' side of the book.
 
+While we find significant relationships between our pre-trade measures and post-trade liquidity, across all of our regressions the adjusted r-squared measure is low. This is largely due to the amount of noise in the trading process, as well as possibly our choice of a sample period with very high levels of information disclosure and volatility.
+
 ## ES Results
 
 ### The Number of Book Changes
@@ -288,9 +290,11 @@ stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels
 
 # Conclusion
 
-In this analysis we have estimated the relationship between pre-trade measures of market activity, and the post-trade change in liquidity on both active and inactive sides of the orderbook (for both buy and sell trades).  On balance, we have found evidence that 
+In this analysis we have estimated the relationship between pre-trade measures of market activity, and the post-trade change in liquidity on both active and inactive sides of the orderbook (for both buy and sell trades).  On balance, we have found limited evidence that our pre-trade measures affect post-trade liquidity, mainly due to low r-squared values.
 
-Though we have also found that these relationships often differ between the active and inactive sides of the orderbook.  
+We have found evidence that a more active pre-trade orderbook increases the liquidity in the orderbook post-trade.  Further, more trades prior to a given trade is correlated with higher amounts of liquidity being added to the inactive side of the orderbook in the post-trade interval.  This is evidence of high-frequency traders acting like traditional market makers.  We have also found evidence that high-frequency traders supply more liquidity in response to larger bid-ask spreads.
+
+Though we have also found that these relationships often differ substantially between the active and inactive sides of the orderbook, and between financial instruments.  Moreover these relationships can change throughout a given trading day and between trading days.
 
 
 # References

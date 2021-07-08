@@ -1,0 +1,296 @@
+---
+title: "Reactive Liquidity"
+author: "Matt Brigida"
+date: "January 1, 2018"
+header-includes:
+   - \setlength\parindent{24pt}
+abstract: "This analysis investigates the relationship between measures of orderbook activity, and the amount of liquidity supplied by high-frequency traders in the book after a trade.  Further, we test if this relationship differs during times of high undertainty in the market. Lastly, we test whether the relationship is robust across futures contracts on varying asset classes."
+always_allow_html: yes
+bibliography: references.bib
+output:
+  pdf_document:
+    fig_caption: yes
+    highlight: tango
+    keep_tex: yes
+    number_sections: yes
+---
+
+
+# Introduction
+
+Is liquidity really there?  This is an often asked question in modern markets, that cannot be adequately answered even ex-post given the speed with which high-frequency traders (HFT) can remove liquidity in response to a market event.  Would that same liquidity have been there if you flashed an order or if someone had executed a trade?  This analysis seeks to answer the question of what conditions are more likely to mean liquidity will be there if you decide to take it.
+
+Previous research (@jones2013we; @Carr13; @Menk13; @Brog14) has *generally* shown that HFT market making activities reduces bid-ask spreads, and increases the informational efficieny of markets.  However, according to @o2015high as many as 98% of all orders are subsequently cancelled instead of being executed as trades.  Given HFT can react to events within milliseconds, will that reduced bid-ask spread be present if you attempt to take the liquidity?
+
+In recent research, @hasbrouck2016high estimated the volatility of bid and ask quotes over sub-second time intervals, and found that this volatility exceeds what can be explained by long-term fundamentals.  This analysis found substantial execution price risk for liquidity demanders who are not able to time their trade at sub-second intervals.  That is, roughly, a typical non-HFT market participant may experience a standard deviation of 0.761 basis points on the execution price they will receive when submitting a market order.  Notably, this uncertainty is due to changes in the bid and ask quotes which happen too fast for the typical trader to even notice.
+
+In related research, @conrad2015high examined volatility in the bid-ask midpoint, however this method effectively averages volatility across both the bid and ask.  @egginton2016quote find evidence that liquidity is lower contemporaneous with quote stuffing events.
+
+Research most similar to the present analysis is @brigida_pratt_trade_2019. They use natural gas (ticker NG) futures data to estimate regression equations which, like us, attempt to estimate the impact of pre-trade measures of orderbook activity and the bid-ask spread on post trade liquidity.  However our analysis differs from @brigida_pratt_trade_2019 in a few important ways.  Firstly, we use the heavily traded E-mini S&P 500 futures contract and Treasury Note futures.  These contracts are where price discovery occurs in the stock and bond markets.  These markets dwarf the natural gas market, and represent measures related to the macroeconomy.  In contrast the natural gas market is on the fringes of the macroeconomy.
+
+Secondly, we chose to estimate our model over the election week in 2016, which exhibited high volatility and likely attracted HFT.  Thirdly, and most importantly, the data used in @brigida_pratt_trade_2019 had missing agressor side data for the majority of their trades.  Only about 10% of their trades were marked as either a buy or sell, and 90% were tagged 'NA'.  In contrast 100% of our trades are tagged by the CME as either a buy or sell.  This gives us a much more clear result on how liquidity is affected on the each side of the book by a buy or sell trade.  That is, we can say how liquidity is affected on the ask side when there has just been a buy order---the ability to identify the side of the order book where the trade has been executed is key in our analysis.  Lastly, we include trades of up to 5 contracts, where the previous authors only included trades of 1 contract.  This gives us a much larger sample, without, we feel, allowing additional information to be imparted by the size of the trade.  5 contracts is well below the mean trade size in our analysis.
+
+The paper is organized as follows. In section two we describe the data employed, hypotheses, and methods employed. Section three describes the results and section four concludes.
+
+# Data, Hypotheses, and Methods
+
+This section describes our raw dataset, and how we have translated the data into an orderbook for use in this analysis  We then describe our method of identifying HFT.  We then cover our hypotheses and empirical methods. 
+
+## Data
+
+We purchased Market Depth Data [link](http://www.cmegroup.com/confluence/display/EPICSANDBOX/Market%2BDepth) directly from the Chicago Mercantile Exchange (CME) for both E-mini S&P 500 (ticker ES) and 10-year Treasury note (ticker ZN) futures.  Market Depth Data consists of all market messages to and from the CME (time-stamped to the nanosecond).  This includes limit order submissions and cancellations, trades with agressor side, as well as additional data related to the contract (such as option implied volatility).  Using the limit orders submissions/cancellations and trades we can recreate the orderbook for our futures contracts up to 10 levels deep.  We have this market depth data for many futures contracts across many asset classes (equity index, interest rates, foreign exchange, energy, etc.), for each trading day in November 2016.  This analysis will focus on the heavily traded ES and ZN contracts for the week of the US Presidential election (11/7/2016 through 11/11/2016).
+
+The data delivered by the CME are encoded in the CME's own FIX/FAST message specification [link](http://www.cmegroup.com/confluence/download/attachments/62816403/Legacy\%2520FIX-FAST\%2520Market\%2520Dta\%2520Message\%2520Specification.pdf?version=2&modificationDate=1452872661000&api=v2).  Using custom scripts, we translate the raw encoded data and then extract trade and quote messages which we use to build the orderbooks. The translation scripts used in this analysis are available here: [https://github.com/Matt-Brigida/CME-FIX-FAST-Translator](https://github.com/Matt-Brigida/CME-FIX-FAST-Translator).
+
+There are a couple important reasons we chose to use CME futures data in this analysis.  First, futures trade nearly 24 hours per day, and these markets were open as the returns from the 2016 Presidential election were coming in.  Secondly, the CME hosts some of the most heavily traded financial contracts.  In fact, equity index price discovery is known to occur in the CME's E-Mini S&P 500 futures contract. These two points mean these markets (particularly ES) were where the information relating to the election was incorporated into prices.  Third, unlike stock, all trades and quotes take place in this one central book, and so  we have a complete picture of the reaction of the order book to trades.  This is in contrast to the 'stock market' which is an interconnection of multiple exchanges, which means each exchange has a delayed view of each other exchange because of the time it takes information to be transmitted between locations.  Lastly, futures contracts across a wide variety of asset classes all trade on the CME.
+
+Regarding the results of the Presidential election, the election took place on 11/8/2016.  However, the reaction to the election is mainly contained in the 11/9/2016 CME Globex trading day, which starts at 4:30 eastern standard time.
+
+Once we had built the orderbook, we identify all trades which met the following two criteria.  First the trade had to be for 5 or fewer contracts, and secondly there could be no trades in the following 100 ms. The second criteria is meant to ensure follow on trades to not affect the change in liquidity which we calculate over the 100ms after the trade.  Note, there may be many trades before the trade in our sample---if there is a series of many trades all within 100ms of each other, our method would extract the last of these trades.
+
+We identify only trades for fewer than 6 contracts to control for any information which may be contained in the trade size.  While the median trade size is 2 contracts, the mean is over the election week ranges from 5 to 9 contracts.  This is consistent with a right-skewed distribution where there are relatively few trades for a large number of contracts.  In the table below are summary statistics for trade sizes for all trades.
+
+<!-- \setlength{\tabcolsep}{-15pt} -->
+
+ Value  |  11/7 | 11/8   | 11/9  | 11/10  | 11/11 
+--------|----------------|-------|--------|-------
+ Min.   |  1    |  1     | 1     |  1     | 1 
+ 1st Qu.|  1    |  1     | 1 	 |  1     | 1 	  
+ Median |  2    |  2     | 2 	 |  2     | 2 	 
+ Mean   |  9.9  |  9.0   | 5.0   |  7.0   | 6.0  
+ 3rd Qu.|  6    |  6     | 5 	 |  6     | 5 
+ Max.   |  4185 |  1047  | 1000  |  800   | 1000 
+: Summary of trade sizes for ESZ6 (the number of contracts for each trade).  
+
+
+
+ Value  |  11/7 | 11/8   | 11/9  | 11/10  | 11/11 
+--------|----------------|-------|--------|-------
+ Min.   |   1   |   1    |  1    |  1     |  1    
+ 1st Qu.|   2   |   2    |  2	 |  1     |  1	  
+ Median |   4   |   5    |  4	 |  5     |  2	 
+ Mean   |  20.3 | 25.1   |  17   |  22.0  |  15 
+ 3rd Qu.|  12   |   16   |  11	 |  14    |  8
+ Max.   |  3366 | 2482   |	2451 |  2805  |  1342
+: Summary of trade sizes for ZNZ6 (the number of contracts for each trade).
+
+<!-- pre and post-trade intervals defined here -->
+Our analysis will test for the effect of pre-trade variables on post-trade change in liquidity.  We will use one second prior to the trade as our pre-trade interval, and 100 milliseconds after the trade as our post-trade period. We aslo confirm that our results are robust to alternative pre and post trade windows.  Below are tables showing the mean value of each explanatory variable over the pre-trade interval.
+
+| Day  | Num. Ch.    | Avg. BA  | Num. Tr.   |
+|------|---------|--------|--------|
+| 11/7 | 106.62  | 24.64  | 7.16   |
+| 11/8 | 144.04  | 24.50  | 8.83   |
+| 11/9 | 162.37  | 24.02  | 13.58  |
+| 11/10 | 224.08 | 24.36  | 13.34  |
+| 11/11 | 161.00 | 24.07  | 9.80   |
+: ESZ6: Mean value for each independent variable by trading day.  The average Bid-Ask spread is quoted in fourths of an index point.
+
+
+| Day  | Num. Ch.    | Avg. BA  | Num. Tr.   |
+|------|---------|--------|--------|
+| 11/7 | 64.159  | 0.015  | 3.184  |
+| 11/8 | 84.324  | 0.0154 | 4.361  |
+| 11/9 | 133.93  | 0.0156 | 8.143  |
+| 11/10 | 135.36 | 0.0156 | 7.002  |
+| 11/11 | 47.672 | 0.0156 | 2.969  |
+: ZNZ6: Mean value for each independent variable by trading day.  The average Bid-Ask spread is quoted in points (0.015 is 1/64th of a point).
+
+### HFT Identification
+
+We identify HFT in a manner similar to the method used in @Hasb13.  They measured low-latency trading activity by focusing on activity within a set time after an order cancellation.  They qualify, as low latency activity, an order cancellation which is followed by an order submission within 100 ms of the cancellation.  Additionally, an order cancellation, followed by an order execution for the same trade direction and quantity as the cancellation, is considered low-latency activity.  @Hasb13 tested their event-driven method of HFT identification, and found it had an 0.8 correlation with the NASDAQ's identification of HFT within the same dataset.^[The dataset used by @Hasb13 overlapped with a NASDAQ dataset which tagged each trade which was initiated by a low-latency trader.]
+
+In our analysis, instead of an order cancellation, we use activity in the 100ms after a trade to identify HFT activity.  A trade is the means by which private information is incorporated into prices, and so we are looking at how HFT react to this new information. Because we focus specifically on liquidity provision in the post-trade interval restricts our analysis to the subset of HFT which are liquidity providers. 
+
+It is possible that by chance a higher-latency trader could submit an order (increasing liquidity), or cancel an order (decreasing liquidity) in the 100 milliseconds post trade.  Given equal probability of this occurring, these higher-latency trades would be captured in the error term and leave the coefficient estimates unaffected.
+
+## Hypotheses
+
+The specific hypotheses we test, and our reasoning for each hypothesis follows. 
+
+> **H1:** Liquidity at both the bid and offer in the post-trade interval is **increasing** in the number of changes to the orderbook in the pre-trade period. 
+
+\noindent Roughly, if there is more activity in the orderbook at some point in time, there there are likely also more traders present.  The presence of more traders should increade competition in liquidity provision.
+
+> **H2:** Liquidity at both the bid and offer in the post-trade interval is **increasing** in the size of the bid-ask spread in the pre-trade period. 
+
+\noindent Previous research (@Hend13; @Chri94; @Carr13; @Biai95) has found evidence consistent with HFT being more likely to provide liquidity when liquidity is costly.  Therefore liquidity provided should increase along with the bid-ask spread.
+
+
+> **H3:** Liquidity at both the bid and offer in the post-trade interval is **increasing** in the number of trades in the pre-trade period. 
+
+\noindent Sophisticated traders are unlikely to cross the spread---they will only do so if it is absolutelly necessary (@o2015high).  Thus increasing the number of unsophisticated trades should increase the amount of liquidity HFT is willing to provide.
+
+Conversely however, trades are the means by which private information is incorporated into prices, and so increased trading may signal to HFT that other market participants have private information that they do not have themselves.  This should cause HFT to widen bid-ask spreads and provide less liquidity.
+
+## Methods
+
+To test these hypotheses, we estimate the parameters of the following equation:
+
+$\Delta L = \beta_0 + \beta_1 Num. Ch. + \beta_2 Avg. BA + \beta_3 Num. Tr. + \mu$
+
+where $Num. Ch.$ is the number of changes in the orderbook, $Avg. BA$ is the average Bid-Ask spread, and $Num. Tr.$ is the number of trades, in the 100 milliseconds prior to the trade.  We estimate the parameters of this equation for both sides of the orderbook, for both buy and sell trades, and lastly for trades where the agressor is unknown.  This affords 6 separate regression equations.
+
+To confirm the robustness of our parameter estimated to the choice of pre and post trade windows, we calculate Avg. BA$, $Num. Tr.$, and $Num. Ch.$ over 30 different pre-trade intervals and 100 separate post trade intervals.  For our pre-trade windows we increment the start time by 100 milliseconds over the range from 100 ms, to 3000 ms prior to the trade.  Each pre-trade interval ends one nanosecond before the trade.  We calculate the post-trade change in liquidity ($Delta L$) over windows starting 1 ms after the trade and incrementing by 1 milliseconds until we reach 100 milliseconds.
+
+By doing so we have 3000 possible combination of pre and post-trade intervals.  In sum, we estimate the parameters of $6(3000) = 18000$ individual regressions for each contract for each day.  Because we use both ES and ZN contracts over 5 days, we have a total of 180,000 individual regressions.
+
+# Results
+
+Both ES and ZN regression results for the trading days ranging from 11/7/2016 through 11/11/2016 are in the tables below.  When looking at the regression results tables, note that the middle two columns (2 and 3) report the results for the 'active' side of the book---the side on which the trade was executed.  Columns 1 and 4 represent the 'inactive' side of the book.
+
+## ES Results
+
+### The Number of Book Changes
+
+Over every day in our sample, there is a positive and significant relationship between the number of changes in the orderbook pre-trade, and the change in liquidity post-trade on the active side of the orderbook.  This evidence supports our hypothesis.
+
+Regarding liquidity on the inactive side of the orderbook, out of the 10 hypothesis tests, 4 showed a positive and significant relationship, 4 negative and significant, and 2 insignificant.  This points to the consistent HFT reaction being on the active side of the book.
+
+### The Size of the Bid-Ask Spread
+
+On the active side of the book there were 5 instances of an insignificant relationship, 2 instances of a positive and significant relationship, and 3 instances which were negative and significant.  On the inactive side there were 6 instances of an insignificant relationship, 1 instance of a positive and significant relationship, and 3 instances which were negative and significant.  This evidence is inconclusive.
+
+### The Number of Trades
+
+On the active side of the book there were 4 instances of an insignificant relationship, 3 instances of a positive and significant relationship, and 3 instances which were negative and significant.  However, on the inactive side all 10 instances showed a positive and significant relationship.  This is evidence consistent with HFT having provided liquidity on the executed trade, and thus increasing liquidity on the opposite side of the book in traditional market-making fashion.
+
+
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/nov_07_2016multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+library(stargazer)
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ESZ6 over November 7, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/nov_08_2016_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ESZ6 over November 8, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/nov_09_2016_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ESZ6 over November 9, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/nov_10_2016_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ESZ6 over November 10, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/nov_11_2016_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ESZ6 over November 11, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+
+
+## ZN Results
+
+### The Number of Book Changes
+
+On the active side of the orderbook, there were six instances of insignificant relationships, and two each of positive and negative relationships respectively.  However, on the inactive side of the book there were six instances of positive and significant relationships, and only three negative and insignificant, and one insignificant, relationship.  This evidence in support of our hypothesis is not as strong compared with the results for ES.
+
+### The Size of the Bid-Ask Spread
+
+On the active side of the book there were 6 instances of a positive and significant relationship, 4 instances of an insignificant relationship.  On the inactive side there were 4 instances of an insignificant relationship, 4 instances of a positive and significant relationship, and 2 instances which were negative and significant.  Particularly for the active side of the book, this is evidence in favor of our hypothesis that HFT liquidity provision is increasing in the cost of that liquidity.
+
+### The Number of Trades
+
+On the active side of the book there were 5 instances of a positive and significant relationship, 5 instances of an insignificant relationship.  On the inactive side there were 4 instances of an insignificant relationship, 5 instances of a positive and significant relationship, and 1 instance which was negative and significant.  Broadly this evidence is consistent with HFT liquidity provision increasing with the number of trades in the pre-trade interval, however the evidence is not as strong as in the ES case.
+
+
+
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/ZN_nov_07_2016_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ZNZ6 over November 7, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+```
+
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/ZN_nov_1108_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ZNZ6 over November 8, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/ZN_nov_1109_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ZNZ6 over November 9, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/ZN_nov_1110_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ZNZ6 over November 10, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+```{r echo = FALSE, message = FALSE, results = 'asis', cache=TRUE}
+load("../data/ZN_nov_1111_multiplecontracts.RData")
+
+names(buy.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(buy.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.bid.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+names(sell.offer.lm$coefficients) <- c("Intercept", "Number Changes", "Avg. Bid/Offer", "Number Trades")
+
+stargazer(buy.offer.lm, buy.bid.lm, sell.offer.lm, sell.bid.lm, covariate.labels = c("Num. Ch.", "Avg. BO", "Num. T"), dep.var.labels = c("Buy/Bid", "Buy/Offer", "Sell/Bid", "Sell/Offer"), digits = 2, no.space=TRUE, header=FALSE, type='latex', omit.stat=c("LL","ser","f"), title = "Regression results for ZNZ6 over November 11, 2016. The results shown are estimated using an interval of 1 second before the trade, and 100ms after the trade.")
+
+```
+
+
+# Conclusion
+
+In this analysis we have estimated the relationship between pre-trade measures of market activity, and the post-trade change in liquidity on both active and inactive sides of the orderbook (for both buy and sell trades).  On balance, we have found evidence that 
+
+Though we have also found that these relationships often differ between the active and inactive sides of the orderbook.  
+
+
+# References
